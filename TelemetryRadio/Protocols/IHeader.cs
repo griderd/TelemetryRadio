@@ -5,6 +5,9 @@ using System.Text;
 
 namespace TelemetryRadio.Protocols
 {
+    /// <summary>
+    /// Represents a protocol header.
+    /// </summary>
     public interface IHeader
     {
         /// <summary>

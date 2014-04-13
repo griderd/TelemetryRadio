@@ -11,17 +11,17 @@ namespace TelemetryRadio.Protocols
     public interface IPacket
     {
         /// <summary>
-        /// Protocol header
+        /// Gets the protocol header
         /// </summary>
         IHeader Header { get; }
 
         /// <summary>
-        /// Data to be transmitted
+        /// Gets the transmission data
         /// </summary>
         byte[] Body { get; }
 
         /// <summary>
-        /// The maximum number of bytes the packet can take up.
+        /// Gets the maximum number of bytes the packet can take up.
         /// </summary>
         int MaxLength { get; }
 

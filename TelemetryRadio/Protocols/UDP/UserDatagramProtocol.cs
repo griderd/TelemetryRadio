@@ -5,98 +5,110 @@ using System.Text;
 using GSLib.Collections;
 using GSLib.Extensions;
 
-namespace TelemetryRadio.Protocols
+namespace TelemetryRadio.Protocols.UDP
 {
-    public class UDPPacketDecoder
+    public class UDPPacketDecoder : PacketDecoder 
     {
-        WordOffset offset;
-        int startOffset;
-        public const int WORD_LENGTH = 2;
+        StringBuilder pseudoheader;
+        ushort source, dest, length;
+        short checksum;
 
-        List<byte> data;
-        Range<byte> currentWord;
-
-        UDPPacket packet;
-
-        public bool IsValid { get; private set; }
-        public bool IsComplete { get; private set; }
-
-        public enum WordOffset
+        /// <summary>
+        /// The current offset of the decoder from the front of the data
+        /// </summary>
+        public override int Offset
         {
-            SourcePort,
-            DestPort,
-            Length,
-            Checksum,
-            Data,
-            End
+            get
+            {
+                return byteOffset - 12;
+            }
         }
 
         public UDPPacketDecoder()
+            : base()
         {
-            offset = WordOffset.SourcePort;
-            data = new List<byte>();
-            currentWord = new Range<byte>(0, 0, data);
-            IsValid = false;
-            IsComplete = false;
-            packet = new UDPPacket();
-            startOffset = 0;
+            pseudoheader = new StringBuilder();
         }
 
-        public void AppendBytes(byte[] arr)
+        public override bool ToPacket(out IPacket packet)
         {
-            data.AddRange(arr);
-            if (currentWord.Info.Length == 0)
-                currentWord.Grow(WORD_LENGTH);
-                
-
-            while (currentWord.UpperBoundary < data.Count && !IsValid)
+            if (EndOfPacket & PacketIsValid)
             {
-                switch (offset)
+                packet = new UDPPacket(dest, source, buffer.ToArray());
+                return true;
+            }
+            else
+            {
+                packet = new UDPPacket();
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Adds a set of bytes to decode
+        /// </summary>
+        /// <param name="b"></param>
+        /// <exception cref="ArgumentNullException">Thrown when the argument is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the number of bytes.</exception>
+        public override void AddBytes(byte[] b, out byte[] overflow)
+        {
+            if (b == null)
+                throw new ArgumentNullException();
+            
+            buffer.AddRange(b);
+
+            // Decode
+            while ((byteOffset <= 12) & (buffer.Count > 0))
+            {
+                switch (byteOffset)
                 {
-                    case WordOffset.SourcePort:
-                        ushort sourcePort = 0;
-                        while (sourcePort == 0 & currentWord.UpperBoundary < data.Count)
+                    case 0:
+                        if (buffer.Count >= 5)
+                            pseudoheader.Append(Encoding.UTF8.GetChars(buffer.ToArray(), 0, 5));
+
+                        if (pseudoheader.ToString() != UDPPacket.PSEUDOHEADER)
                         {
-                            sourcePort = BitConverter.ToUInt16(currentWord.Values, 0);
-                            if (sourcePort == 0)
-                                currentWord++;
+                            pseudoheader.Clear();
+                            buffer.RemoveAt(0);
                         }
-                        packet.header.SourcePort = sourcePort;
-                        currentWord += WORD_LENGTH;
-                        offset++;
-                        break;
-
-                    case WordOffset.DestPort:
-                        packet.header.DestPort = BitConverter.ToUInt16(currentWord.Values, 0);
-                        currentWord += WORD_LENGTH;
-                        offset++;
-                        break;
-
-                    case WordOffset.Length:
-                        packet.header.length = BitConverter.ToUInt16(currentWord.Values, 0);
-                        currentWord += WORD_LENGTH;
-                        offset++;
-                        break;
-
-                    case WordOffset.Checksum:
-                        packet.header.checksum = BitConverter.ToInt16(currentWord.Values, 0);
-                        currentWord += WORD_LENGTH;
-                        offset++;
-                        break;
-
-                    case WordOffset.Data:
-                        try
+                        else
                         {
-                            currentWord.Info = new RangeInfo(currentWord.Offset, packet.header.Length);
+                            Advance(5);
                         }
-                        catch
-                        {
-                            IsComplete = true;
-                            offset = WordOffset.SourcePort;
-                            startOffset++;
-                        }
+                        break;
 
+                    case 5:
+                        ReadUInt16(out source);
+                        break;
+
+                    case 7:
+                        ReadUInt16(out dest);
+                        break;
+
+                    case 9:
+                        ReadUInt16(out length);
+                        break;
+
+                    case 11:
+                        ReadInt16(out checksum);
+                        break;
                 }
+            }
+            
+            overflow = new byte[0];
+
+            CanRead = byteOffset > 12;
+            UDPHeader udp = new UDPHeader();
+
+            if ((byteOffset >= 12) && (buffer.Count + udp.HeaderLength >= length))
+            {
+                if (buffer.Count + udp.HeaderLength > length)
+                {
+                    overflow = buffer.GetRange(length -  udp.HeaderLength, buffer.Count - length).ToArray();
+                    buffer.RemoveRange(length, buffer.Count - length);
+                }
+                EndOfPacket = true;
+                PacketIsValid = (checksum == (new UDPHeader().GenerateChecksum(buffer.ToArray())));
             }
         }
 
@@ -124,6 +136,8 @@ namespace TelemetryRadio.Protocols
     {
         internal UDPHeader header;
         internal byte[] data;
+
+        public const string PSEUDOHEADER = "$UDP$";
 
         public UDPPacket(ushort source, ushort dest, byte[] data)
         {
@@ -174,6 +188,7 @@ namespace TelemetryRadio.Protocols
         {
             List<byte> b = new List<byte>();
 
+            b.AddRange(Encoding.UTF8.GetBytes(PSEUDOHEADER));
             b.AddRange(header.ToByteArray());
             b.AddRange(data);
 

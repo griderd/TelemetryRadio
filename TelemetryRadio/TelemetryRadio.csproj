@@ -34,9 +34,6 @@
     <Reference Include="Assembly-CSharp">
       <HintPath>H:\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="GSLib">
-      <HintPath>..\..\Grider Software Libraries\GSLib\GSLib\bin\Release\GSLib.dll</HintPath>
-    </Reference>
     <Reference Include="RemoteTech2">
       <HintPath>H:\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program\GameData\RemoteTech2\Plugins\RemoteTech2.dll</HintPath>
     </Reference>
@@ -54,15 +51,26 @@
   <ItemGroup>
     <Compile Include="Air.cs" />
     <Compile Include="DataStream.cs" />
-    <Compile Include="DTProtocol.cs" />
     <Compile Include="IRadioReciever.cs" />
+    <Compile Include="LineOfSight.cs" />
     <Compile Include="Protocols\IHeader.cs" />
     <Compile Include="Protocols\IPacket.cs" />
     <Compile Include="Protocols\PacketBuilder.cs" />
-    <Compile Include="Protocols\UserDatagramProtocol.cs" />
+    <Compile Include="Protocols\PacketDecoder.cs" />
+    <Compile Include="Protocols\TCP\TCPClient.cs" />
+    <Compile Include="Protocols\TCP\TCPHeader.cs" />
+    <Compile Include="Protocols\TCP\TCPServer.cs" />
+    <Compile Include="Protocols\TCP\TCPState.cs" />
+    <Compile Include="Protocols\UDP\UserDatagramProtocol.cs" />
     <Compile Include="RadioTracker.cs" />
     <Compile Include="RadioTransmitter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GSLib\GSLib.csproj">
+      <Project>{05A3973F-8561-43AA-838E-87E94AEEE318}</Project>
+      <Name>GSLib</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
